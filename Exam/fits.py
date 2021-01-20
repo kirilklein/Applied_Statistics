@@ -153,7 +153,7 @@ def chi2_fit_func(x,y,sy,func, p0, show_plot = True, plot_res = False, save_plot
                   fit_label = '', Text_pos = (0.01,.99), 
                   figsize = (10,5), y_range= None, legend_loc = 2, legend_fs =18,
                   label_fs = 25, ticksize = 20, res_legend_fs =18,
-                  res_label = 'res. with error', res_legend_loc = 0, plot_res_distr = False,res_bins = 30, inset_bbox = (2,3),
+                  res_label = 'res. with error',res_legend_off= False, res_legend_loc = 0, plot_res_distr = False,res_bins = 30, inset_bbox = (2,3),
                   range_res_distr = (-.5,.5)):
     
     """Fit a single function to data, calls chi2_fit_mult_func"""
@@ -166,7 +166,7 @@ def chi2_fit_func(x,y,sy,func, p0, show_plot = True, plot_res = False, save_plot
                                              legend_loc = legend_loc, legend_fs =legend_fs,
                                              label_fs = label_fs, ticksize = ticksize, res_legend_fs =res_legend_fs,
                   res_label = res_label, res_legend_loc = res_legend_loc, plot_res_distr = plot_res_distr,res_bins = res_bins, inset_bbox = inset_bbox,
-                  range_res_distr = range_res_distr, plot_res = plot_res)
+                  range_res_distr = range_res_distr, plot_res = plot_res, res_legend_off=res_legend_off)
     return ax, fig, Popt[0], Pcov[0]
 
 
@@ -174,7 +174,7 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
                   data_label='Data, with Poisson errors',Fit_label = [''], Text_pos = [(0.01,.99), (.3,.99),(.4,.99)], 
                   figsize = (10,5), y_range= None, legend_loc = 0, legend_fs =20, label_fs = 25, ticksize = 20, res_legend_fs =18,
                   res_label = 'res. with error', res_legend_loc = 0, res_bins = 30, inset_bbox = (2,3),
-                  range_res_distr = (-.5,.5)):
+                  range_res_distr = (-.5,.5), res_legend_off = False):
     r"""
     Fit piecewise defined functions, plot data with fit. 
     
@@ -224,7 +224,7 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
         func = functions[i]
         color = color_cycle[i]
         xmin, xmax = Ranges[i]
-        mask = (xmin<X) & (xmax>=X)
+        mask = (xmin<=X) & (xmax>=X)
         text_pos = Text_pos[i]
         fit_label = Fit_label[i]
         x, y, sy = X[mask], Y[mask], SY[mask]
@@ -273,10 +273,12 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
         ax.set_ylim((y_range[0],y_range[1]))
     
     if plot_res:
+        xlim = ax.get_xlim()
+        ax_r.set_xlim(xlim)
         ax_r.errorbar(x_res, y_res, sy_res, fmt='.r',  ecolor='r', elinewidth=.6, 
              capsize=0, capthick=0.1, label = res_label)
         res_wa, res_err = as_toolbox.weighted_avg(y_res, sy_res)
-        x_res_mean = np.linspace(x_res.min(), x_res.max(), 100)
+     
         
         if const_err:
             ax_r.axhline(y_res.mean(), label = 'Mean')
@@ -285,13 +287,14 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
             
 
         #ax_r.plot(x_res_mean, np.ones(len(x_res_mean))*res_wa, label = 'weighted average', linestyle = '-.')
-        ax_r.legend(fontsize = res_legend_fs, loc = res_legend_loc)
+        if res_legend_off:
+            pass
+        else:
+            ax_r.legend(fontsize = res_legend_fs, loc = res_legend_loc)
         
         ax.set_xlabel('')
         ax.get_xaxis().set_visible(False)
         ax.set_xticklabels([])
-        xlim = ax.get_xlim()
-        ax_r.set_xlim(xlim)
         ax_r.set_ylabel(ylabel + ' res', fontsize = label_fs)
         ax_r.set_xlabel(xlabel, fontsize = label_fs)
         ax_r.tick_params(axis = 'both', labelsize =ticksize)

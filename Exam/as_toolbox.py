@@ -212,7 +212,52 @@ def two_sample_test(mu1, mu2, sig_mu1, sig_mu2):
     """Compute p-value for mean values of two samples agreing with each other.
     Assumes Gaussian distribution."""
     z = (mu1-mu2)/np.sqrt(sig_mu1**2+sig_mu2**2)
-    return std_to_prob(z) 
+    return std_to_prob(np.abs(z)) 
+
+def calc_separation(x, y):
+    r"""Compute separation of two vairables.
+    Returns: 
+        d: separation in terms of std 
+        p: corr. p value"""
+    mean_x = np.mean(x)
+    mean_y = np.mean(y)
+    
+    std_x = np.std(x, ddof=1)
+    std_y = np.std(y, ddof=1)
+    d = np.abs((mean_x - mean_y)) / np.sqrt(std_x**2 + std_y**2)
+    
+    return d, std_to_prob(d)
+
+def compute_FPR_TPR(X, y, c, var, larger =True ):
+    """Compute FPR and TPR.
+    Parameters:
+        X: array_like,
+            input data, NxM with N samples M variables, assuming that positive has an entr
+        y: array_like,
+            1 if positive 0 else
+        c: float,
+            separation threshold
+        var: integer, 0,..,M-1
+            select column
+        larger: bool,
+            if True, positive/H0 reject for var>c
+    Returns:
+        FPR, TPR
+        """
+    X_pos = X[y == 1]
+    X_neg = X[y == 0]
+    if larger:
+        mask_pos = X_pos[:,var]>c
+        mask_pos = X_neg[:,var]>c
+    else:
+        mask_pos = X_pos[:,var]<c
+        mask_pos = X_neg[:,var]<c
+    X_tp = X_pos[mask_pos]
+    X_fp = X_neg[mask_pos]
+    TPR = len(X_tp)/len(X_pos)
+    FPR = len(X_fp)/len(X_neg)
+    return FPR, TPR
+
 
 def runsTest(arr):
     """Runs test for randomness. 
