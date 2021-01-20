@@ -107,7 +107,7 @@ class Chi2Regression:  # override the class with a better one
         self.f = f  # model predicts y for given x
         self.x = np.array(x)
         self.y = np.array(y)
-        
+        self.observed = observed
         self.sy = set_var_if_None(sy, self.x)
         self.weights = set_var_if_None(weights, self.x)
         self.func_code = make_func_code(describe(self.f)[1:])

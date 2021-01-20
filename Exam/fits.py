@@ -226,9 +226,13 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges, show_plot = True, save_plot
     if y_range!=None:
         ax.set_ylim((y_range[0],y_range[1]))
     fig.tight_layout()
-    if show_plot:
-        plt.show()
+
     if save_plot:
         fig.savefig(figname)
+        
+    if show_plot:
+        plt.show(fig)
+    else:
+        plt.close(fig)
     return ax, fig, Popt, Pcov
         

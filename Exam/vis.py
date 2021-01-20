@@ -7,16 +7,18 @@ Created on Sat Jan 16 15:18:15 2021
 import numpy as np
 import matplotlib.pyplot as plt
 from mlxtend.plotting import plot_decision_regions
+from scipy import stats
 import fits
 ##################################################################################
 # In[General plots]
-def nice_histogram(x_all, N_bins, plot_hist = False, plot_errors = True, plot_legend = True, save = False, figname = '', 
+def nice_histogram(x_all, N_bins, show_plot = False, plot_hist = False, plot_errors = True, 
+                   plot_legend = True, save = False, figname = '', 
                    data_label = 'Data, histogram', figsize = (12,6), 
                    histtype = 'step', color_hist = 'orange', fmt = '.b', ecolor = 'b',
                    xlabel = 'x', ylabel = 'Frequency', label_fs = 20, 
                    legend_fs = 18, legend_loc = 0, ticks_lsize = 20 ):
     """Produce a nice histogram.
-    Returns: x, y, sy, binwidth."""
+    Returns: x, y, sy, binwidth, fig, ax."""
     
     x,y,sy, binwidth = fits.produce_hist_values(x_all,N_bins)
     fig, ax = plt.subplots(figsize=figsize) 
@@ -31,11 +33,18 @@ def nice_histogram(x_all, N_bins, plot_hist = False, plot_errors = True, plot_le
     ax.tick_params(axis ='both', labelsize = ticks_lsize)
     if plot_legend:
         ax.legend(loc=legend_loc, fontsize = legend_fs)
+        
+    
     if save:
         fig.tight_layout()
         fig.savefig(figname)
-    plt.show()
-    return x, y, sy, binwidth
+    
+    if show_plot:
+        plt.show(fig)
+    else:
+        plt.close(fig)
+    
+    return x, y, sy, binwidth, fig, ax
 
 
 def scatter_hist(X0,X1,Y0,Y1, ax, ax_histx, ax_histy, N_bins_x, N_bins_y,
@@ -71,7 +80,7 @@ def plot_classification(X, y, classifier, N_bins_x = 40, N_bins_y = 40,
                         histlabel0 = 'type I', histlabel1 = 'type II',
                         xlabel='x', ylabel = 'y', 
                         figsize = (10,10), save = False, figname = '',
-                        show = True):
+                        show_plot = False):
 
     r"""
     Create a scatter plot including separation according to classifier #
@@ -147,10 +156,14 @@ def plot_classification(X, y, classifier, N_bins_x = 40, N_bins_y = 40,
     scatter_hist(X0,X1,Y0, Y1, ax_scatter, ax_histx, ax_histy,
                  N_bins_x=N_bins_x, N_bins_y=N_bins_y, 
                  histlabel0 = histlabel0 , histlabel1 = histlabel1)
-    if show:
-        plt.show()
+    
     if save:
         fig.savefig(figname, bbox_inches = 'tight')
+    
+    if show_plot:
+        plt.show(fig)
+    else:
+        plt.close(fig)
     
     return classifier, ax_scatter, ax_histx, ax_histy, fig
 #############################################################################    
@@ -171,14 +184,16 @@ def get_chi2_ndf( hist, const):
     ndof = data.size
     return chi2, ndof
 
-def show_int_distribution(integers):
+def show_int_distribution(integers, save_plot = True, figname = '', show_plot= False):
     """Show histogram of integers, to see if random.(Author: Troels Petersen)
     modified by: Kiril Klein
     Parameters: 
         integers, array_like
     Returns: 
         dict_raw, dict_odd_even, dict_high_low: dictionaries
-        contain chi2, ndf, p for the hypothesis of integers being random.
+            contains chi2, ndf, p for the hypothesis of integers being random.
+        AX: list of axes objects
+        fig: figure
         """
     fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15, 5))
     ax_number, ax_odd_even, ax_high_low = ax.flatten()
@@ -199,10 +214,18 @@ def show_int_distribution(integers):
     dict_raw = {'chi2':chi2_raw, 'ndf':ndf_raw ,'p': p_raw }
     dict_odd_even = {'chi2':chi2_odd_even, 'ndf':ndf_odd_even ,'p': p_odd_even }
     dict_high_low = {'chi2':chi2_high_low, 'ndf':ndf_high_low ,'p': p_high_low }
-    return dict_raw, dict_odd_even, dict_high_low
+    AX = [ax_number, ax_odd_even, ax_high_low]
+    if save_plot:
+        fig.savefig(figname)
+    if show_plot:
+        plt.show(fig)
+    else:
+        plt.close(fig)
+    
+    return dict_raw, dict_odd_even, dict_high_low, fig, AX
 
 # In[Example]
-
+"""
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from scipy import stats
 from sklearn.metrics import plot_roc_curve
@@ -227,3 +250,4 @@ ax_histx.plot(np.linspace(-2,2,100), 10*stats.norm.pdf(np.linspace(-2,2,100),
                                                       loc = 0,scale = .5))
 display(fig)
 plot_roc_curve(fitted_clf, X, y)
+"""
