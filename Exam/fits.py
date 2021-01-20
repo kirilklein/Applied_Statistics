@@ -12,7 +12,7 @@ from ExternalFunctions import nice_string_output
 from scipy.optimize import curve_fit
 from scipy import stats
 import as_toolbox
-
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     
 class Error(Exception):
     """Base class for other exceptions"""
@@ -148,11 +148,35 @@ def hist_fit(fit_func, x_all, p0, N_bins, x_range = None, fit_type = 'chi2',
     return minuit_obj, x, y, sy
     
 
-def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges, show_plot = True, save_plot=False, figname = None, xlabel = 'x',ylabel='', 
+def chi2_fit_func(x,y,sy,func, p0, show_plot = True, plot_res = False, save_plot=False, figname = None, 
+                  xlabel = 'x',ylabel='', data_label='Data, with Poisson errors',
+                  fit_label = '', Text_pos = (0.01,.99), 
+                  figsize = (10,5), y_range= None, legend_loc = 2, legend_fs =18,
+                  label_fs = 25, ticksize = 20, res_legend_fs =18,
+                  res_label = 'res. with error', res_legend_loc = 0, plot_res_distr = False,res_bins = 30, inset_bbox = (2,3),
+                  range_res_distr = (-.5,.5)):
+    
+    """Fit a single function to data, calls chi2_fit_mult_func"""
+    Range = [(x.min(), x.max())]
+    ax, fig, Popt, Pcov = chi2_fit_mult_func(x, y, sy, [func], [p0], Range, 
+                                             show_plot = show_plot, save_plot=save_plot, 
+                                             figname = figname, xlabel = xlabel,ylabel=ylabel, 
+                                             data_label=data_label, Fit_label = [fit_label],
+                                             Text_pos = [Text_pos], figsize = figsize, y_range= y_range, 
+                                             legend_loc = legend_loc, legend_fs =legend_fs,
+                                             label_fs = label_fs, ticksize = ticksize, res_legend_fs =res_legend_fs,
+                  res_label = res_label, res_legend_loc = res_legend_loc, plot_res_distr = plot_res_distr,res_bins = res_bins, inset_bbox = inset_bbox,
+                  range_res_distr = range_res_distr, plot_res = plot_res)
+    return ax, fig, Popt[0], Pcov[0]
+
+
+def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_distr = False, show_plot = True, save_plot=False, figname = None, xlabel = 'x',ylabel='', 
                   data_label='Data, with Poisson errors',Fit_label = [''], Text_pos = [(0.01,.99), (.3,.99),(.4,.99)], 
-                  figsize = (10,5), y_range= None, legend_loc = 2, legend_fs =18):
+                  figsize = (10,5), y_range= None, legend_loc = 0, legend_fs =20, label_fs = 25, ticksize = 20, res_legend_fs =18,
+                  res_label = 'res. with error', res_legend_loc = 0, res_bins = 30, inset_bbox = (2,3),
+                  range_res_distr = (-.5,.5)):
     r"""
-    Fit piecewise defined functions, plot data with fit
+    Fit piecewise defined functions, plot data with fit. 
     
     Parameters:
     ----------
@@ -169,7 +193,8 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges, show_plot = True, save_plot
         Position to plot the resulting fit parameters
     Fit-label: list of str,
         Label for the fit functions displayed in the legend
-    ...
+    plot_res: bool, include residual plot
+    plot_res_distr: bool, plot distribution of residuals
     
     Returns:
     -------
@@ -179,11 +204,22 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges, show_plot = True, save_plot
     Pcov: list of covariance matrices
     """
     
-    fig, ax =plt.subplots(figsize= figsize)
+    
+    if plot_res:
+        fig, axes = plt.subplots(2,figsize = figsize,gridspec_kw={'height_ratios': [2.5, 1]})
+        ax = axes[0]
+        ax_r = axes[1]
+    else:
+        fig, ax =plt.subplots(figsize= figsize)
+        
+    const_err = (type(SY)==float)
+    if const_err:
+        SY = np.ones(len(X))*SY
     ax.errorbar(X, Y, yerr=SY, fmt='.b',  ecolor='b', elinewidth=.6, 
              capsize=0, capthick=0.1, label =data_label)#plot data
     color_cycle=['r', 'g', 'b', 'y']#colors for different fits
     Popt, Pcov = [], []#lists to store fitted params
+    x_res, y_res, sy_res = [],[],[]
     for i in range(len(functions)):
         func = functions[i]
         color = color_cycle[i]
@@ -203,6 +239,11 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges, show_plot = True, save_plot
         xaxis = np.linspace(xmin, xmax, 1000)
         yaxis = func(xaxis, *popt)
         
+        
+        x_res.append(x)
+        y_res.append(y-func(x,*popt))
+        sy_res.append(sy)
+        
         names = ['Chi2/NDF', 'Prob']
         values = [ "{:.2f} / {:d}".format(chi2_val, Ndof), "{:.3f}".format(Prob),]
         for i in range(len(p0)):
@@ -218,13 +259,58 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges, show_plot = True, save_plot
         ax.text(text_pos[0], text_pos[1], text, fontsize=14,  family='monospace', 
             transform=ax.transAxes, color=color, verticalalignment='top', horizontalalignment ='left');
         ax.plot(xaxis, yaxis,color = color, label= fit_label);
-    ax.set_ylabel(ylabel, fontsize = 25)
-    ax.tick_params(axis = 'both',labelsize  = 20)
+    
+    x_res = np.ndarray.flatten(np.array(x_res))
+    y_res = np.ndarray.flatten(np.array(y_res))
+    sy_res = np.ndarray.flatten(np.array(sy_res))
+    
+    ax.set_ylabel(ylabel, fontsize = label_fs)
+    ax.tick_params(axis = 'both',labelsize  = ticksize)
     ax.legend(loc = legend_loc, fontsize = legend_fs)
-    ax.set_xlabel(xlabel, fontsize =20)
-    ax.tick_params(labelsize =20)
+    ax.set_xlabel(xlabel, fontsize =label_fs)
+    
     if y_range!=None:
         ax.set_ylim((y_range[0],y_range[1]))
+    
+    if plot_res:
+        ax_r.errorbar(x_res, y_res, sy_res, fmt='.r',  ecolor='r', elinewidth=.6, 
+             capsize=0, capthick=0.1, label = res_label)
+        res_wa, res_err = as_toolbox.weighted_avg(y_res, sy_res)
+        x_res_mean = np.linspace(x_res.min(), x_res.max(), 100)
+        
+        if const_err:
+            ax_r.axhline(y_res.mean(), label = 'Mean')
+        else:
+            ax_r.axhline(res_wa, label = 'Weighted average')
+            
+
+        #ax_r.plot(x_res_mean, np.ones(len(x_res_mean))*res_wa, label = 'weighted average', linestyle = '-.')
+        ax_r.legend(fontsize = res_legend_fs, loc = res_legend_loc)
+        
+        ax.set_xlabel('')
+        ax.get_xaxis().set_visible(False)
+        ax.set_xticklabels([])
+        xlim = ax.get_xlim()
+        ax_r.set_xlim(xlim)
+        ax_r.set_ylabel(ylabel + ' res', fontsize = label_fs)
+        ax_r.set_xlabel(xlabel, fontsize = label_fs)
+        ax_r.tick_params(axis = 'both', labelsize =ticksize)
+        plt.subplots_adjust(hspace=0)
+        
+    if plot_res_distr:
+        axins = inset_axes(ax, width = inset_bbox[2], height = inset_bbox[3], bbox_to_anchor =inset_bbox[:2],
+                           bbox_transform=ax.figure.transFigure)
+        axins.text(0.40, 1.1, "Residuals", transform=axins.transAxes, fontsize=14, verticalalignment='top')
+        axins.hist(y_res, bins=res_bins, range=range_res_distr, histtype='step', linewidth=1, color='r')
+        if const_err:
+            axins.text(0.01, 0.85, nice_string_output({'Mean': "{:.3f}".format(y_res.mean()),
+                                           'RMS' : "{:.3f}".format(y_res.std(ddof=1))}),
+                       family='monospace', transform=axins.transAxes, fontsize=10, verticalalignment='top', color='r')
+        else:
+            axins.text(0.01, 0.85, nice_string_output({'Weighted average': "{:.3f}".format(res_wa),
+                                           'Error on wa' : "{:.3f}".format(res_err)}),
+                       family='monospace', transform=axins.transAxes, fontsize=10, verticalalignment='top', color='r')
+            
     fig.tight_layout()
 
     if save_plot:
