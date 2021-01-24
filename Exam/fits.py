@@ -32,7 +32,7 @@ def double_gauss_one_mean(x, N, f, mu, sig1, sig2):
     Returns: N*(f*G(mu,sig1)+(1-f)*G(mu,sig2))"""
     return N*(f*stats.norm.pdf(x,mu,sig1)+(1-f)*stats.norm.pdf(x,mu,sig2))
 
-def produce_hist_values(x_all, N_bins, x_range = None, only_nonzero = False):
+def produce_hist_values(x_all, N_bins, x_range = None, only_nonzero = False, log = False):
     r"""
     Produce histogram
     
@@ -60,6 +60,8 @@ def produce_hist_values(x_all, N_bins, x_range = None, only_nonzero = False):
     """
     if x_range==None:
         x_range = (x_all.min(), x_all.max())
+    if log:
+        N_bins = np.logspace(np.log10(x_range[0]),np.log10(x_range[1]), N_bins)
     counts, bin_edges = np.histogram(x_all, bins=N_bins, range=x_range)
     x, binwidth = (bin_edges[1:] + bin_edges[:-1])/2, bin_edges[1]-bin_edges[0]
     y, sy = counts, np.sqrt(counts) #assume that the bin count is Poisson distributed.
@@ -117,7 +119,7 @@ def hist_fit(fit_func, x_all, p0, N_bins, x_range = None, fit_type = 'chi2',
     
     if x_range == None:
         x_range = (x_all.min(), x_all.max())
-    x, y, sy = produce_hist_values(x_all, N_bins,x_range = x_range)
+    x, y, sy, binwidth = produce_hist_values(x_all, N_bins,x_range = x_range)
     
     if fit_type == 'chi2':
         if observed:
@@ -148,17 +150,19 @@ def hist_fit(fit_func, x_all, p0, N_bins, x_range = None, fit_type = 'chi2',
     return minuit_obj, x, y, sy
     
 
-def chi2_fit_func(x,y,sy,func, p0, show_plot = True, plot_res = False, save_plot=False, figname = None, 
+def chi2_fit_func(x,y,sy,func, p0, Range = None, absolute_sigma = True,show_plot = True, plot_res = False, save_plot=False, figname = None, 
                   xlabel = 'x',ylabel='', data_label='Data, with Poisson errors',
                   fit_label = '', Text_pos = (0.01,.99), 
                   figsize = (10,5), y_range= None, legend_loc = 2, legend_fs =18,
                   label_fs = 25, ticksize = 20, res_legend_fs =18,
                   res_label = 'res. with error',res_legend_off= False, res_legend_loc = 0, plot_res_distr = False,res_bins = 30, inset_bbox = (2,3),
-                  range_res_distr = (-.5,.5)):
+                  range_res_distr = (-.5,.5), axis = None, figure = None, legend_off = False, x_show_range = None,
+                  text_fs = 14, dpi = 80, ylogscale = False, xlogscale = False, show_CI = False):
     
     """Fit a single function to data, calls chi2_fit_mult_func"""
-    Range = [(x.min(), x.max())]
-    ax, fig, Popt, Pcov = chi2_fit_mult_func(x, y, sy, [func], [p0], Range, 
+    if Range==None:
+        Range = [(x.min(), x.max())]
+    ax, fig, Popt, Pcov = chi2_fit_mult_func(x, y, sy, [func], [p0], Ranges = Range, absolute_sigma = absolute_sigma,
                                              show_plot = show_plot, save_plot=save_plot, 
                                              figname = figname, xlabel = xlabel,ylabel=ylabel, 
                                              data_label=data_label, Fit_label = [fit_label],
@@ -166,15 +170,19 @@ def chi2_fit_func(x,y,sy,func, p0, show_plot = True, plot_res = False, save_plot
                                              legend_loc = legend_loc, legend_fs =legend_fs,
                                              label_fs = label_fs, ticksize = ticksize, res_legend_fs =res_legend_fs,
                   res_label = res_label, res_legend_loc = res_legend_loc, plot_res_distr = plot_res_distr,res_bins = res_bins, inset_bbox = inset_bbox,
-                  range_res_distr = range_res_distr, plot_res = plot_res, res_legend_off=res_legend_off)
+                  range_res_distr = range_res_distr, plot_res = plot_res, res_legend_off=res_legend_off, 
+                  axis = axis, figure = figure, legend_off=legend_off, x_show_range = x_show_range, text_fs = text_fs,
+                  dpi = dpi, ylogscale = ylogscale, xlogscale = xlogscale, show_CI = show_CI)
     return ax, fig, Popt[0], Pcov[0]
 
 
-def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_distr = False, show_plot = True, save_plot=False, figname = None, xlabel = 'x',ylabel='', 
+def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,absolute_sigma = True, plot_res = False, plot_res_distr = False, show_plot = True, save_plot=False, figname = None, xlabel = 'x',ylabel='', 
                   data_label='Data, with Poisson errors',Fit_label = [''], Text_pos = [(0.01,.99), (.3,.99),(.4,.99)], 
                   figsize = (10,5), y_range= None, legend_loc = 0, legend_fs =20, label_fs = 25, ticksize = 20, res_legend_fs =18,
                   res_label = 'res. with error', res_legend_loc = 0, res_bins = 30, inset_bbox = (2,3),
-                  range_res_distr = (-.5,.5), res_legend_off = False):
+                  range_res_distr = (-.5,.5), res_legend_off = False, axis= None, figure = None, 
+                  legend_off = False, x_show_range = None, text_fs = 14, dpi = 80, xlogscale = False,
+                  ylogscale = False, show_CI = False):
     r"""
     Fit piecewise defined functions, plot data with fit. 
     
@@ -210,8 +218,14 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
         ax = axes[0]
         ax_r = axes[1]
     else:
-        fig, ax =plt.subplots(figsize= figsize)
-        
+        if not(axis==None):
+            ax = axis
+            fig = figure
+        else:
+            fig, ax = plt.subplots(figsize=figsize)
+      
+      
+    
     const_err = (type(SY)==float)
     if const_err:
         SY = np.ones(len(X))*SY
@@ -229,9 +243,9 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
         fit_label = Fit_label[i]
         x, y, sy = X[mask], Y[mask], SY[mask]
         p0 = P0[i]
-        popt, pcov = curve_fit(func, x,y, p0 = p0, sigma = sy)
+        popt, pcov = curve_fit(func, x,y, p0 = p0, sigma = sy, absolute_sigma=True)
         Popt.append(popt)
-        Pcov.append(Pcov)
+        Pcov.append(pcov)
         sigma_popt = np.sqrt(np.diag(pcov))
         Ndof = len(x) - len(p0)
         chi2_val = as_toolbox.chi_sq(func(x, *popt), y, sy)
@@ -239,13 +253,24 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
         xaxis = np.linspace(xmin, xmax, 1000)
         yaxis = func(xaxis, *popt)
         
+        if show_CI:
+            sigma_ab = np.sqrt(np.diagonal(pcov))
+            best_fit_ab = popt
+            bound_upper = func(xaxis, *(best_fit_ab + sigma_ab))
+            bound_lower = func(xaxis, *(best_fit_ab - sigma_ab))
+            # plotting the confidence intervals
+            ax.fill_between(xaxis, bound_lower, bound_upper,
+                            color = 'black', alpha = 0.15, label = '68% CI')
         
         x_res.append(x)
         y_res.append(y-func(x,*popt))
         sy_res.append(sy)
         
         names = ['Chi2/NDF', 'Prob']
-        values = [ "{:.2f} / {:d}".format(chi2_val, Ndof), "{:.3f}".format(Prob),]
+        if Prob>0.001:
+            values = [ "{:.2f} / {:d}".format(chi2_val, Ndof), "{:.3f}".format(Prob),]
+        else:
+            values = [ "{:.2f} / {:d}".format(chi2_val, Ndof), "{:.3e}".format(Prob),]
         for i in range(len(p0)):
             varname = func.__code__.co_varnames[1+i]
             names.append(varname)
@@ -256,7 +281,7 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
             d[n]=v
     
         text = nice_string_output(d, extra_spacing=0, decimals=2)
-        ax.text(text_pos[0], text_pos[1], text, fontsize=14,  family='monospace', 
+        ax.text(text_pos[0], text_pos[1], text, fontsize=text_fs,  family='monospace', 
             transform=ax.transAxes, color=color, verticalalignment='top', horizontalalignment ='left');
         ax.plot(xaxis, yaxis,color = color, label= fit_label);
     
@@ -266,8 +291,17 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
     
     ax.set_ylabel(ylabel, fontsize = label_fs)
     ax.tick_params(axis = 'both',labelsize  = ticksize)
-    ax.legend(loc = legend_loc, fontsize = legend_fs)
+    if not(legend_off):
+        ax.legend(loc = legend_loc, fontsize = legend_fs)
+    
     ax.set_xlabel(xlabel, fontsize =label_fs)
+    if xlogscale:
+        ax.set_xscale('log')
+
+    if ylogscale:
+        ax.set_yscale('log')
+    
+    
     
     if y_range!=None:
         ax.set_ylim((y_range[0],y_range[1]))
@@ -313,15 +347,19 @@ def chi2_fit_mult_func(X,Y,SY,functions, P0, Ranges,plot_res = False, plot_res_d
             axins.text(0.01, 0.85, nice_string_output({'Weighted average': "{:.3f}".format(res_wa),
                                            'Error on wa' : "{:.3f}".format(res_err)}),
                        family='monospace', transform=axins.transAxes, fontsize=10, verticalalignment='top', color='r')
-            
+    
+    if not(x_show_range==None):
+        ax.set_xlim(x_show_range)
+    
     fig.tight_layout()
 
     if save_plot:
-        fig.savefig(figname)
+        fig.savefig(figname, dpi = dpi)
         
     if show_plot:
         plt.show(fig)
     else:
         plt.close(fig)
+        
     return ax, fig, Popt, Pcov
         

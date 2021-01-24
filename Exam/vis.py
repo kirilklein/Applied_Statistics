@@ -9,35 +9,50 @@ import matplotlib.pyplot as plt
 from mlxtend.plotting import plot_decision_regions
 from scipy import stats
 import fits
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
+from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 ##################################################################################
 # In[General plots]
 def nice_histogram(x_all, N_bins, show_plot = False, plot_hist = False, plot_errors = True, 
-                   plot_legend = True, save = False, figname = '', 
-                   data_label = 'Data, histogram', figsize = (12,6), 
+                   plot_legend = True, save = False, figname = '', x_range = None, 
+                   data_label = 'Data, histogram', data_label_hist = '',figsize = (12,6), 
                    histtype = 'step', color_hist = 'orange', fmt = '.b', ecolor = 'b',
                    xlabel = 'x', ylabel = 'Frequency', label_fs = 20, 
-                   legend_fs = 18, legend_loc = 0, ticks_lsize = 20 ):
+                   legend_fs = 18, legend_loc = 0, ticks_lsize = 20, xlog_scale = False,
+                   ylog_scale = False, axis = None, figure = None, dpi = 80):
     """Produce a nice histogram.
     Returns: x, y, sy, binwidth, fig, ax."""
     
-    x,y,sy, binwidth = fits.produce_hist_values(x_all,N_bins)
-    fig, ax = plt.subplots(figsize=figsize) 
+    if not(x_range==None):
+        mask_x = (x_all>x_range[0]) & (x_all<x_range[1])
+        x_all = x_all[mask_x]
+    x,y,sy, binwidth = fits.produce_hist_values(x_all,N_bins, x_range = x_range,log = xlog_scale)
+    if not(axis==None):
+        ax = axis
+        fig = figure
+    else:
+        fig, ax = plt.subplots(figsize=figsize)
+        
     if plot_hist:
         ax.hist(x_all, bins=N_bins, range=(x_all.min(), x_all.max()), histtype=histtype,
-                       linewidth=2, color=color_hist, label=data_label)
+                       linewidth=2, color=color_hist, label=data_label_hist)
     if plot_errors:
-        ax.errorbar(x, y, yerr=sy, xerr=0.0, label='Data, with Poisson errors', fmt=fmt,
+        ax.errorbar(x, y, yerr=sy, xerr=0.0, label=data_label, fmt=fmt,
                     ecolor=ecolor, elinewidth=1, capsize=1, capthick=1)
     ax.set_xlabel(xlabel, fontsize = label_fs)
     ax.set_ylabel(ylabel, fontsize = label_fs)
     ax.tick_params(axis ='both', labelsize = ticks_lsize)
+    if xlog_scale:
+        ax.set_xscale('log')
+    if ylog_scale:
+        ax.set_yscale('log')
     if plot_legend:
         ax.legend(loc=legend_loc, fontsize = legend_fs)
         
     
     if save:
         fig.tight_layout()
-        fig.savefig(figname)
+        fig.savefig(figname, dpi = dpi)
     
     if show_plot:
         plt.show(fig)
@@ -166,7 +181,43 @@ def plot_classification(X, y, classifier, N_bins_x = 40, N_bins_y = 40,
         plt.close(fig)
     
     return classifier, ax_scatter, ax_histx, ax_histy, fig
-#############################################################################    
+############################################################################# 
+
+def add_zoom_inset(ax, zoom,loc, x,y, xlim, ylim , sy = None, 
+                   xlabel = '', ylabel = '', label_fs = 18,
+                   mark_inset_loc = (3,1), borderpad = 4):
+    """Add inset axis that shows a region of the data.
+    
+    Parameters:
+    -----------
+    ax: axis object
+    zoom: float, zoom factor
+    loc: integer, location of inset axis
+    x,y, sy: array_like, data to plot
+    xlim, ylim: (float, float) limits for x and y axis
+    xlabel, ylabel: str, label for x and y axis
+    label_fs: float, fonstsize for x and y axis labels
+    mark_inset_loc: (int, int), corners for connection to the new axis
+    borderpad: float, distance from border
+    """
+    
+    axins = zoomed_inset_axes(ax,zoom,loc = loc,
+                              borderpad=borderpad) 
+    if sy==None:
+        axins.plot(x, y)
+    else: 
+        axins.errorbar(x, y, yerr=sy, fmt='.b',  ecolor='b', elinewidth=.5, 
+             capsize=0, capthick=0.1)
+        
+    if not(ylim==None):
+        axins.set_ylim(ylim)
+    
+    axins.set_xlabel(xlabel, fontsize = label_fs)
+    axins.set_ylabel(ylabel, fontsize = label_fs)
+    axins.set_xlim(xlim) # Limit the region for zoom
+    mark_inset(ax, axins, loc1=mark_inset_loc[0], loc2=mark_inset_loc[1], fc="none", ec="0.5")
+   
+
 # In[Random Numbers] 
 
 def create_1d_hist(ax, values, bins, x_range, title):

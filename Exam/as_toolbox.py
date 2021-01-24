@@ -22,10 +22,10 @@ from scipy import special
 import itertools
 from decimal import Decimal
 # In[Basic]
-def load_url_data(url): 
+def load_url_data(url, skiprows = 0): 
     """Load text data under url into numpy array."""
     file= urllib.request.urlopen(url)
-    return np.loadtxt(file)
+    return np.loadtxt(file, skiprows = skiprows)
 
 def weighted_avg(arr_mu, arr_sig):
     r"""
@@ -281,15 +281,17 @@ def runsTest(arr):
     return p 
 
 def func_Poisson(x, N, lamb) :
-    """Helper function for seq_freq_test."""
+    """Helper function for seq_freq_test. 
+    Author: Troels Petersen"""
     if (x > -0.5) :
         return N * stats.poisson.pmf(x, lamb)
     else : 
         return 0.0
 
-def seq_freq_test(integers, seq_l = 3, N_bins = 21, show_plot = True):
+def seq_freq_test(integers, seq_l = 3, N_bins = 21, show_plot = True, figsize = (12,8)):
     """Compare sequence frequency with Poisson hypothesis.
     Poisson hypothesis is fitted and plotted.
+    Author: Troels Petersen
     Parameters:
         integers: array_like, input data
         seq_l: int,(default 3) length of sequence to be tested
@@ -303,8 +305,8 @@ def seq_freq_test(integers, seq_l = 3, N_bins = 21, show_plot = True):
     poisson_counts, _ = np.histogram(seq, int(10**seq_l+1), range=(-0.5, 10**seq_l+.5))
     xmin, xmax = -0.5, N_bins-.5
     
-    fig, ax = plt.subplots(figsize=(12,8))
-    hist_poisson = ax.hist(poisson_counts, N_bins, range=(xmin, xmax))
+    fig, ax = plt.subplots(figsize=figsize)
+    hist_poisson = ax.hist(poisson_counts, N_bins, range=(xmin, xmax), label = 'Sequence distribution')
     counts, x_edges, _ = hist_poisson
     
     x_centers = 0.5*(x_edges[1:] + x_edges[:-1])
@@ -328,19 +330,19 @@ def seq_freq_test(integers, seq_l = 3, N_bins = 21, show_plot = True):
      'Lambda'   : "{:.2f} +/- {:.2f}".format(minuit.values['lamb'], minuit.errors['lamb'])
     }
 
-    ax.text(0.62, 0.95, nice_string_output(d), family='monospace',
+    ax.text(0.62, 0.99, nice_string_output(d), family='monospace',
             transform=ax.transAxes, fontsize=14, verticalalignment='top');
 
     binwidth = (xmax-xmin) / N_bins 
     xaxis = np.linspace(xmin, xmax, 500)
     func_Poisson_vec = np.vectorize(func_Poisson)
     yaxis = binwidth*func_Poisson_vec(np.floor(xaxis+0.5), *minuit.args)
-    ax.plot(xaxis, yaxis)
+    ax.plot(xaxis, yaxis,label = 'Poisson distribution')
     if show_plot:
         plt.show(fig)
     else:
         plt.close(fig)
-    return chi2_prob
+    return chi2_prob, fig,ax
 
 
 # In[Latex template]
